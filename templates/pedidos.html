@@ -22,8 +22,10 @@
             padding: 6px 14px; border-radius: 20px; font-size: 11px; font-weight: bold;
             background: #eee; color: var(--dark); text-transform: uppercase;
         }
+        /* Colores por estatus */
         .status-Recibido { background: #d1ecf1; color: #0c5460; }
-        .status-En.camino { background: #fff3cd; color: #856404; }
+        .status-Preparando { background: #fff3cd; color: #856404; }
+        .status-En-camino { background: #d4edda; color: #155724; }
         
         .items-list { color: #555; font-size: 14px; margin: 15px 0; padding-left: 20px; }
         .total-price { font-size: 22px; font-weight: 900; color: var(--primary); }
@@ -46,13 +48,14 @@
     </header>
 
     <div id="listaPedidos">
-        <p style="text-align:center; color:#999;">Buscando pedidos pendientes en la base de datos...</p>
+        <p style="text-align:center; color:#999;">Conectando con la central de pedidos...</p>
     </div>
 </div>
 
 <script>
     async function cargarPedidosGlobales() {
         const user = JSON.parse(localStorage.getItem('usuario'));
+        
         if (!user) {
             window.location.href = "/";
             return;
@@ -61,30 +64,71 @@
         document.getElementById('nombreRepartidor').innerText = `Repartidor: ${user.nombre}`;
 
         try {
-            // Llamamos a la API que creamos en server1.py
+            // Llamada al servidor Render
             const res = await fetch(`/mis-pedidos/${user.email}`);
+            
+            if (!res.ok) throw new Error("Error en la respuesta del servidor");
+            
             const pedidos = await res.json();
-
             const contenedor = document.getElementById('listaPedidos');
 
-            if (pedidos.length === 0) {
+            if (!pedidos || pedidos.length === 0) {
                 contenedor.innerHTML = `
                     <div style="text-align:center; margin-top:50px;">
                         <h1 style="font-size:50px;">😴</h1>
-                        <p style="color:#999;">No hay pedidos pendientes por ahora.<br>¡Buen momento para un descanso!</p>
+                        <p style="color:#999;">No hay pedidos pendientes en este momento.</p>
                     </div>`;
                 return;
             }
 
-            contenedor.innerHTML = pedidos.map(p => `
+            // Mapeo de pedidos con validación de datos (Protección contra errores)
+            contenedor.innerHTML = pedidos.map(p => {
+                // Validamos que existan items antes de usar .map
+                const listaItems = (p.items && Array.isArray(p.items)) 
+                    ? p.items.map(item => `<li><b>${item.cantidad || 1}x</b> ${item.nombre || 'Producto'} - $${item.precio || 0}</li>`).join('')
+                    : '<li>Detalles no disponibles</li>';
+
+                const badgeClass = p.estatus ? p.estatus.replace(/\s+/g, '-') : 'Pendiente';
+
+                return `
                 <div class="pedido-card">
-                    <div class="status-badge status-${p.estatus.replace(" ", ".")}">${p.estatus}</div>
-                    <div style="font-size: 11px; color: #bbb;">ID: ${p._id}</div>
-                    <div style="font-weight: bold; margin: 10px 0; font-size: 16px;">📅 ${new Date(p.fecha).toLocaleString()}</div>
+                    <div class="status-badge status-${badgeClass}">${p.estatus || 'Recibido'}</div>
+                    <div style="font-size: 10px; color: #ccc;">ID: ${p._id}</div>
+                    <div style="font-weight: bold; margin: 10px 0; font-size: 16px;">
+                        📅 ${p.fecha ? new Date(p.fecha).toLocaleString() : 'Fecha no disponible'}
+                    </div>
                     
                     <ul class="items-list">
-                        ${p.items.map(item => `<li><b>${item.cantidad || 1}x</b> ${item.nombre} - $${item.precio}</li>`).join('')}
+                        ${listaItems}
                     </ul>
 
                     <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <div class="total-price">$${p.total.toFixed(2)}</div>
+                        <div class="total-price">$${p.total ? p.total.toFixed(2) : '0.00'}</div>
+                    </div>
+
+                    <div class="info-entrega">
+                        📍 <b>Dirección:</b> ${p.ubicacion || 'Consultar con el cliente'}<br>
+                        📏 <b>Distancia:</b> ${p.distanciaKm || '?'} km
+                    </div>
+                </div>
+                `;
+            }).join('');
+
+        } catch (error) {
+            console.error("Error cargando pedidos:", error);
+            document.getElementById('listaPedidos').innerHTML = `
+                <p style="text-align:center; color:red;">
+                    Error al conectar con la base de datos.<br>
+                    <small>Verifica tu conexión a internet o el estado del servidor.</small>
+                </p>`;
+        }
+    }
+
+    // Ejecutar al cargar la página
+    window.onload = cargarPedidosGlobales;
+    
+    // Auto-recarga cada 30 segundos para ver pedidos nuevos
+    setInterval(cargarPedidosGlobales, 30000);
+</script>
+</body>
+</html>
