@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Repartidores - SlotEats</title>
+    <style>
+        :root { --primary: #e84118; --secondary: #ff4757; --dark: #2f3542; }
+        body { font-family: 'Segoe UI', sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; background: #fef2f2; }
+        .container { background: white; padding: 40px; border-radius: 20px; box-shadow: 0 10px 25px rgba(232, 65, 24, 0.15); width: 340px; text-align: center; }
+        h3 { color: var(--primary); font-size: 32px; font-weight: 800; margin-bottom: 25px; }
+        h3 span { color: var(--dark); }
+        input { width: 100%; margin: 12px 0; padding: 14px; border: 2px solid #eee; border-radius: 10px; box-sizing: border-box; outline: none; transition: 0.3s; }
+        input:focus { border-color: var(--secondary); }
+        .btn-login { width: 100%; padding: 14px; background: var(--primary); color: white; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; font-size: 16px; margin-top: 10px; transition: 0.3s; }
+        .btn-login:hover { background: var(--secondary); transform: translateY(-2px); }
+        .unlock-link { display: block; margin-top: 15px; color: #666; font-size: 13px; text-decoration: none; cursor: pointer; }
+        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 1000; }
+        .modal-content { background: white; padding: 30px; border-radius: 15px; width: 300px; text-align: center; position: relative; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h3>Slot<span>Eats</span></h3>
+    <p style="margin-bottom: 20px; color: #999;">Panel de Repartidores</p>
+    <form id="loginForm">
+        <input type="email" id="email" placeholder="correo@sloteats.com" required>
+        <input type="password" id="password" placeholder="Contraseña" required>
+        <button type="submit" class="btn-login">Iniciar Sesión</button>
+    </form>
+    <a class="unlock-link" onclick="abrirModal()">¿Cuenta bloqueada? Desbloquea aquí</a>
+</div>
+
+<div id="modalUnlock" class="modal">
+    <div class="modal-content">
+        <h4 style="color: var(--primary);">Desbloquear Cuenta</h4>
+        <input type="email" id="uEmail" placeholder="Tu Correo">
+        <input type="text" id="uCode" placeholder="Código de 6 dígitos">
+        <input type="password" id="uNewPass" placeholder="Nueva Contraseña">
+        <input type="password" id="uConfirmPass" placeholder="Confirmar Contraseña">
+        <button class="btn-login" onclick="ejecutarDesbloqueo()">Restablecer Acceso</button>
+        <button style="background:#999; margin-top:10px;" class="btn-login" onclick="cerrarModal()">Cancelar</button>
+    </div>
+</div>
+
+<script>
+    const abrirModal = () => document.getElementById('modalUnlock').style.display = 'flex';
+    const cerrarModal = () => document.getElementById('modalUnlock').style.display = 'none';
+
+    document.getElementById('loginForm').onsubmit = async (e) => {
+        e.preventDefault();
+        const res = await fetch('/login-repartidor', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                email: document.getElementById('email').value,
+                password: document.getElementById('password').value
+            })
+        });
+        const data = await res.json();
+        alert(data.msg);
+        if(res.ok) window.location.href = "https://tu-sitio-repartidores-dashboard.com"; // Aquí pones a donde van tras login
+    };
+
+    async function ejecutarDesbloqueo() {
+        const pass = document.getElementById('uNewPass').value;
+        if(pass !== document.getElementById('uConfirmPass').value) return alert("Las contraseñas no coinciden");
+
+        const res = await fetch('/unlock-repartidor', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                email: document.getElementById('uEmail').value,
+                codigo: document.getElementById('uCode').value,
+                nuevaPassword: pass
+            })
+        });
+        const data = await res.json();
+        alert(data.msg);
+        if(res.ok) cerrarModal();
+    }
+</script>
+</body>
+</html>
