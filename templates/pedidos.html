@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pedidos Globales - SlotEats Staff</title>
+    <style>
+        :root { --primary: #e84118; --dark: #2f3542; --success: #27ae60; --bg: #f4f7f6; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        header { 
+            display: flex; justify-content: space-between; align-items: center; 
+            background: white; padding: 15px 25px; border-radius: 15px; margin-bottom: 20px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+        }
+        .pedido-card { 
+            background: white; border-radius: 15px; padding: 20px; margin-bottom: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05); position: relative; border-left: 6px solid var(--primary);
+        }
+        .status-badge { 
+            position: absolute; top: 20px; right: 20px; 
+            padding: 6px 14px; border-radius: 20px; font-size: 11px; font-weight: bold;
+            background: #eee; color: var(--dark); text-transform: uppercase;
+        }
+        .status-Recibido { background: #d1ecf1; color: #0c5460; }
+        .status-En.camino { background: #fff3cd; color: #856404; }
+        
+        .items-list { color: #555; font-size: 14px; margin: 15px 0; padding-left: 20px; }
+        .total-price { font-size: 22px; font-weight: 900; color: var(--primary); }
+        .info-entrega { 
+            font-size: 13px; color: #777; margin-top: 15px; 
+            border-top: 1px dashed #ddd; padding-top: 10px; line-height: 1.6;
+        }
+        .btn-logout { background: #eee; color: #666; border: none; padding: 8px 15px; border-radius: 8px; cursor: pointer; text-decoration: none; font-size: 13px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <div>
+            <h2 style="margin:0; color:var(--dark);">SlotEats Staff 🛵</h2>
+            <small id="nombreRepartidor" style="color:var(--primary); font-weight:bold;"></small>
+        </div>
+        <a href="/" class="btn-logout" onclick="localStorage.clear()">Cerrar Sesión</a>
+    </header>
+
+    <div id="listaPedidos">
+        <p style="text-align:center; color:#999;">Buscando pedidos pendientes en la base de datos...</p>
+    </div>
+</div>
+
+<script>
+    async function cargarPedidosGlobales() {
+        const user = JSON.parse(localStorage.getItem('usuario'));
+        if (!user) {
+            window.location.href = "/";
+            return;
+        }
+
+        document.getElementById('nombreRepartidor').innerText = `Repartidor: ${user.nombre}`;
+
+        try {
+            // Llamamos a la API que creamos en server1.py
+            const res = await fetch(`/mis-pedidos/${user.email}`);
+            const pedidos = await res.json();
+
+            const contenedor = document.getElementById('listaPedidos');
+
+            if (pedidos.length === 0) {
+                contenedor.innerHTML = `
+                    <div style="text-align:center; margin-top:50px;">
+                        <h1 style="font-size:50px;">😴</h1>
+                        <p style="color:#999;">No hay pedidos pendientes por ahora.<br>¡Buen momento para un descanso!</p>
+                    </div>`;
+                return;
+            }
+
+            contenedor.innerHTML = pedidos.map(p => `
+                <div class="pedido-card">
+                    <div class="status-badge status-${p.estatus.replace(" ", ".")}">${p.estatus}</div>
+                    <div style="font-size: 11px; color: #bbb;">ID: ${p._id}</div>
+                    <div style="font-weight: bold; margin: 10px 0; font-size: 16px;">📅 ${new Date(p.fecha).toLocaleString()}</div>
+                    
+                    <ul class="items-list">
+                        ${p.items.map(item => `<li><b>${item.cantidad || 1}x</b> ${item.nombre} - $${item.precio}</li>`).join('')}
+                    </ul>
+
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div class="total-price">$${p.total.toFixed(2)}</div>
