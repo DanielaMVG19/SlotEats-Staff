@@ -59,7 +59,17 @@ def unlock():
         })
         return jsonify({"msg": "Cuenta desbloqueada exitosamente."}), 200
     return jsonify({"msg": "Código incorrecto"}), 400
-
+@server1.route('/fix-passwords')
+def fix_passwords():
+    all_users = repartidores.find()
+    count = 0
+    for user in all_users:
+        # Si la contraseña no empieza con $2b$, es texto plano
+        if not user['password'].startswith('$2b$'):
+            nuevo_hash = bcrypt.generate_password_hash(user['password']).decode('utf-8')
+            repartidores.update_one({"_id": user["_id"]}, {"$set": {"password": nuevo_hash}})
+            count += 1
+    return f"¡Listo! Se actualizaron {count} contraseñas a formato seguro."
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
     server1.run(host='0.0.0.0', port=port)
