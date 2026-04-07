@@ -16,7 +16,7 @@ repartidores = db.empleados
 
 @server1.route('/')
 def home():
-    return render_template('login-repartidor.html')
+    return render_template('loginrepartidor.html')
 
 @server1.route('/loginrepartidor', methods=['POST'])
 def login():
