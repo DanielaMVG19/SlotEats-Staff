@@ -22,7 +22,6 @@
             padding: 6px 14px; border-radius: 20px; font-size: 11px; font-weight: bold;
             background: #eee; color: var(--dark); text-transform: uppercase;
         }
-        /* Colores por estatus */
         .status-Recibido { background: #d1ecf1; color: #0c5460; }
         .status-Preparando { background: #fff3cd; color: #856404; }
         .status-En-camino { background: #d4edda; color: #155724; }
@@ -34,6 +33,26 @@
             border-top: 1px dashed #ddd; padding-top: 10px; line-height: 1.6;
         }
         .btn-logout { background: #eee; color: #666; border: none; padding: 8px 15px; border-radius: 8px; cursor: pointer; text-decoration: none; font-size: 13px; }
+
+        /* Estilo del nuevo botón Completado */
+        .btn-completar {
+            width: 100%;
+            margin-top: 15px;
+            padding: 12px;
+            background: var(--success);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.3s;
+            font-size: 14px;
+        }
+        .btn-completar:hover {
+            background: #219150;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(39, 174, 96, 0.3);
+        }
     </style>
 </head>
 <body>
@@ -55,7 +74,6 @@
 <script>
     async function cargarPedidosGlobales() {
         const user = JSON.parse(localStorage.getItem('usuario'));
-        
         if (!user) {
             window.location.href = "/";
             return;
@@ -64,10 +82,8 @@
         document.getElementById('nombreRepartidor').innerText = `Repartidor: ${user.nombre}`;
 
         try {
-            // Llamada al servidor Render
             const res = await fetch(`/mis-pedidos/${user.email}`);
-            
-            if (!res.ok) throw new Error("Error en la respuesta del servidor");
+            if (!res.ok) throw new Error("Error en el servidor");
             
             const pedidos = await res.json();
             const contenedor = document.getElementById('listaPedidos');
@@ -81,14 +97,12 @@
                 return;
             }
 
-            // Mapeo de pedidos con validación de datos (Protección contra errores)
             contenedor.innerHTML = pedidos.map(p => {
-                // Validamos que existan items antes de usar .map
                 const listaItems = (p.items && Array.isArray(p.items)) 
                     ? p.items.map(item => `<li><b>${item.cantidad || 1}x</b> ${item.nombre || 'Producto'} - $${item.precio || 0}</li>`).join('')
                     : '<li>Detalles no disponibles</li>';
 
-                const badgeClass = p.estatus ? p.estatus.replace(/\s+/g, '-') : 'Pendiente';
+                const badgeClass = p.estatus ? p.estatus.replace(/\s+/g, '-') : 'Recibido';
 
                 return `
                 <div class="pedido-card">
@@ -110,24 +124,41 @@
                         📍 <b>Dirección:</b> ${p.ubicacion || 'Consultar con el cliente'}<br>
                         📏 <b>Distancia:</b> ${p.distanciaKm || '?'} km
                     </div>
+
+                    <button class="btn-completar" onclick="marcarCompletado('${p._id}')">
+                        Marcar como Entregado ✅
+                    </button>
                 </div>
                 `;
             }).join('');
 
         } catch (error) {
-            console.error("Error cargando pedidos:", error);
-            document.getElementById('listaPedidos').innerHTML = `
-                <p style="text-align:center; color:red;">
-                    Error al conectar con la base de datos.<br>
-                    <small>Verifica tu conexión a internet o el estado del servidor.</small>
-                </p>`;
+            console.error("Error:", error);
+            document.getElementById('listaPedidos').innerHTML = `<p style="text-align:center; color:red;">Error al cargar datos.</p>`;
         }
     }
 
-    // Ejecutar al cargar la página
+    async function marcarCompletado(idPedido) {
+        if(!confirm("¿Confirmas que el pedido ha sido entregado al cliente?")) return;
+
+        try {
+            const res = await fetch(`/completar-pedido/${idPedido}`, {
+                method: 'POST'
+            });
+            const data = await res.json();
+            
+            if(res.ok) {
+                alert("¡Buen trabajo! Pedido finalizado.");
+                cargarPedidosGlobales(); // Refrescar la lista
+            } else {
+                alert("Error: " + data.msg);
+            }
+        } catch (error) {
+            alert("Hubo un problema al conectar con el servidor.");
+        }
+    }
+
     window.onload = cargarPedidosGlobales;
-    
-    // Auto-recarga cada 30 segundos para ver pedidos nuevos
     setInterval(cargarPedidosGlobales, 30000);
 </script>
 </body>
