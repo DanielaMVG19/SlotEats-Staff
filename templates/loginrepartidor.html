@@ -49,17 +49,35 @@
 
     document.getElementById('loginForm').onsubmit = async (e) => {
         e.preventDefault();
-        const res = await fetch('/login-repartidor', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-                email: document.getElementById('email').value,
-                password: document.getElementById('password').value
-            })
-        });
-        const data = await res.json();
-        alert(data.msg);
-        if(res.ok) window.location.href = "https://tu-sitio-repartidores-dashboard.com"; // Aquí pones a donde van tras login
+        try {
+            const res = await fetch('/login-repartidor', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    email: document.getElementById('email').value,
+                    password: document.getElementById('password').value
+                })
+            });
+            
+            const data = await res.json();
+
+            if(res.ok) {
+                // GUARDAMOS LOS DATOS EN EL NAVEGADOR (localStorage)
+                // Esto es lo que permite que pedidos.html sepa quién eres
+                localStorage.setItem('usuario', JSON.stringify({
+                    nombre: data.nombre,
+                    email: data.email
+                }));
+                
+                alert("¡Bienvenido, " + data.nombre + "!");
+                // REDIRIGIMOS A LA PÁGINA DE PEDIDOS
+                window.location.href = "/pedidos.html"; 
+            } else {
+                alert(data.msg);
+            }
+        } catch (error) {
+            alert("Error de conexión con el servidor");
+        }
     };
 
     async function ejecutarDesbloqueo() {
