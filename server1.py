@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify, render_template
 from flask_bcrypt import Bcrypt
 from flask_cors import CORS
 from pymongo import MongoClient
+from bson.objectid import ObjectId # Necesario para manejar los IDs de MongoDB
 import random, string, os
 
 server1 = Flask(__name__)
@@ -15,13 +16,12 @@ db = client.SlotEatsDB
 
 # Colecciones
 repartidores = db.empleados 
-pedidos_col = db.pedidos # <--- Nueva conexión para los pedidos
+pedidos_col = db.pedidos 
 
 @server1.route('/')
 def home():
     return render_template('loginrepartidor.html')
 
-# Ruta para que pedidos.html cargue los datos
 @server1.route('/pedidos.html')
 def pedidos_page():
     return render_template('pedidos.html')
@@ -44,7 +44,6 @@ def login():
 
     if bcrypt.check_password_hash(user['password'], password):
         repartidores.update_one({"email": email}, {"$set": {"intentosFallidos": 0}})
-        # Importante: Enviamos el email para que el HTML sepa de quién son los pedidos
         return jsonify({
             "msg": f"¡Bienvenido {user['nombre']}!", 
             "nombre": user['nombre'],
@@ -60,18 +59,32 @@ def login():
         repartidores.update_one({"email": email}, {"$set": {"intentosFallidos": intentos}})
         return jsonify({"msg": f"Contraseña incorrecta. {intentos}/4"}), 401
 
-# API para consultar los pedidos desde el HTML
 @server1.route('/mis-pedidos/<email>')
 def obtener_pedidos(email):
-    # El repartidor ve pedidos que NO están entregados (pendientes)
+    # Traemos pedidos que no estén entregados
     query = {"estatus": {"$ne": "Entregado"}}
     lista_pedidos = list(pedidos_col.find(query))
     
-    # Formateamos el ID de Mongo para que JS no se confunda
     for p in lista_pedidos:
         p['_id'] = str(p['_id'])
         
     return jsonify(lista_pedidos)
+
+# --- NUEVA RUTA PARA COMPLETAR PEDIDOS ---
+@server1.route('/completar-pedido/<id>', methods=['POST'])
+def completar_pedido(id):
+    try:
+        # Buscamos el pedido por ID y cambiamos su estatus
+        resultado = pedidos_col.update_one(
+            {"_id": ObjectId(id)}, 
+            {"$set": {"estatus": "Entregado"}}
+        )
+        
+        if resultado.modified_count > 0:
+            return jsonify({"msg": "¡Pedido entregado con éxito! 🛵"}), 200
+        return jsonify({"msg": "No se pudo actualizar el pedido"}), 404
+    except Exception as e:
+        return jsonify({"msg": f"Error: {str(e)}"}), 500
 
 @server1.route('/unlock-repartidor', methods=['POST'])
 def unlock():
