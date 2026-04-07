@@ -8,16 +8,23 @@ server1 = Flask(__name__)
 CORS(server1)
 bcrypt = Bcrypt(server1)
 
-# Tu URI de Mongo Atlas (Mantenemos tu conexión actual)
+# Conexión a Mongo Atlas
 MONGO_URI = "mongodb+srv://whosmarny:Dnxlsmth.6@cluster0.eazfo3x.mongodb.net/SlotEatsDB?retryWrites=true&w=majority"
 client = MongoClient(MONGO_URI)
 db = client.SlotEatsDB
+
+# Colecciones
 repartidores = db.empleados 
+pedidos_col = db.pedidos # <--- Nueva conexión para los pedidos
 
 @server1.route('/')
 def home():
-    # Coincide exactamente con tu archivo en templates/
     return render_template('loginrepartidor.html')
+
+# Ruta para que pedidos.html cargue los datos
+@server1.route('/pedidos.html')
+def pedidos_page():
+    return render_template('pedidos.html')
 
 @server1.route('/login-repartidor', methods=['POST'])
 def login():
@@ -37,7 +44,12 @@ def login():
 
     if bcrypt.check_password_hash(user['password'], password):
         repartidores.update_one({"email": email}, {"$set": {"intentosFallidos": 0}})
-        return jsonify({"msg": f"¡Bienvenido {user['nombre']}!", "nombre": user['nombre']}), 200
+        # Importante: Enviamos el email para que el HTML sepa de quién son los pedidos
+        return jsonify({
+            "msg": f"¡Bienvenido {user['nombre']}!", 
+            "nombre": user['nombre'],
+            "email": email
+        }), 200
     else:
         intentos = user.get('intentosFallidos', 0) + 1
         if intentos >= 4:
@@ -47,6 +59,19 @@ def login():
         
         repartidores.update_one({"email": email}, {"$set": {"intentosFallidos": intentos}})
         return jsonify({"msg": f"Contraseña incorrecta. {intentos}/4"}), 401
+
+# API para consultar los pedidos desde el HTML
+@server1.route('/mis-pedidos/<email>')
+def obtener_pedidos(email):
+    # El repartidor ve pedidos que NO están entregados (pendientes)
+    query = {"estatus": {"$ne": "Entregado"}}
+    lista_pedidos = list(pedidos_col.find(query))
+    
+    # Formateamos el ID de Mongo para que JS no se confunda
+    for p in lista_pedidos:
+        p['_id'] = str(p['_id'])
+        
+    return jsonify(lista_pedidos)
 
 @server1.route('/unlock-repartidor', methods=['POST'])
 def unlock():
@@ -59,17 +84,18 @@ def unlock():
         })
         return jsonify({"msg": "Cuenta desbloqueada exitosamente."}), 200
     return jsonify({"msg": "Código incorrecto"}), 400
+
 @server1.route('/fix-passwords')
 def fix_passwords():
     all_users = repartidores.find()
     count = 0
     for user in all_users:
-        # Si la contraseña no empieza con $2b$, es texto plano
         if not user['password'].startswith('$2b$'):
             nuevo_hash = bcrypt.generate_password_hash(user['password']).decode('utf-8')
             repartidores.update_one({"_id": user["_id"]}, {"$set": {"password": nuevo_hash}})
             count += 1
-    return f"¡Listo! Se actualizaron {count} contraseñas a formato seguro."
+    return f"¡Listo! Se actualizaron {count} contraseñas."
+
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
     server1.run(host='0.0.0.0', port=port)
