@@ -8,7 +8,7 @@ server1 = Flask(__name__)
 CORS(server1)
 bcrypt = Bcrypt(server1)
 
-# Tu URI de Mongo Atlas
+# Tu URI de Mongo Atlas (Mantenemos tu conexión actual)
 MONGO_URI = "mongodb+srv://whosmarny:Dnxlsmth.6@cluster0.eazfo3x.mongodb.net/SlotEatsDB?retryWrites=true&w=majority"
 client = MongoClient(MONGO_URI)
 db = client.SlotEatsDB
@@ -16,7 +16,8 @@ repartidores = db.empleados
 
 @server1.route('/')
 def home():
-    return render_template('login-repartidor.html')
+    # Coincide exactamente con tu archivo en templates/
+    return render_template('loginrepartidor.html')
 
 @server1.route('/login-repartidor', methods=['POST'])
 def login():
